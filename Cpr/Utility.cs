@@ -50,12 +50,12 @@ namespace ChromePasswordReader
                     while (rdr.Read()) {
                         string password;
 
-                        //string encrypted_string = System.Text.Encoding.Unicode.GetString(encrypted_pass);
-                        string encrypted_string = rdr.GetString(3);
+                        //string encryptedString = System.Text.Encoding.Unicode.GetString(encrypted_pass);
+                        string encryptedString = rdr.GetString(3);
                         //Console.WriteLine("encrypted_string:" + encrypted_string);
 
-                        var encryptedData = Encoding.Default.GetBytes(encrypted_string);
-                        if (encrypted_string.StartsWith("v10") || encrypted_string.StartsWith("v11")) {
+                        var encryptedData = Encoding.Default.GetBytes(encryptedString);
+                        if (encryptedString.StartsWith("v10") || encryptedString.StartsWith("v11")) {
                             //Local State file located in the parent folder of profile folder.
                             password = DecryptWithKey(encryptedData, masterKey);
                         } else {
@@ -108,30 +108,33 @@ namespace ChromePasswordReader
             }
         }
 
-        public static string DecryptWithKey(byte[] encryptedData, byte[] MasterKey)
+        public static string DecryptWithKey(byte[] encryptedData, byte[] masterKey)
         {
             byte[] iv = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // IV 12 bytes
 
             //trim first 3 bytes(signature "v10") and take 12 bytes after signature.
-            Array.Copy(encryptedData, 3, iv, 0, 12);
+            const int ivLength = 12;
+            Array.Copy(encryptedData, 3, iv, 0, ivLength);
 
             try {
                 //encryptedData without IV
-                byte[] Buffer = new byte[encryptedData.Length - 15];
-                Array.Copy(encryptedData, 15, Buffer, 0, encryptedData.Length - 15);
+                const int dataBufferLength = 15;
+                byte[] dataBufferWithoutIv = new byte[encryptedData.Length - dataBufferLength];
+                Array.Copy(encryptedData, dataBufferLength, dataBufferWithoutIv, 0, encryptedData.Length - dataBufferLength);
 
-                byte[] tag = new byte[16]; //AuthTag
-                byte[] data = new byte[Buffer.Length - tag.Length]; //Encrypted Data
+                const int authTagLength = 16;
+                byte[] tag = new byte[authTagLength]; //AuthTag
+                byte[] data = new byte[dataBufferWithoutIv.Length - tag.Length]; //Encrypted Data
 
                 //Last 16 bytes for tag
-                Array.Copy(Buffer, Buffer.Length - 16, tag, 0, 16);
+                Array.Copy(dataBufferWithoutIv, dataBufferWithoutIv.Length - authTagLength, tag, 0, authTagLength);
 
                 //encrypted password
-                Array.Copy(Buffer, 0, data, 0, Buffer.Length - tag.Length);
+                Array.Copy(dataBufferWithoutIv, 0, data, 0, dataBufferWithoutIv.Length - tag.Length);
                 //Console.WriteLine("tag:" + System.Text.Encoding.Default.GetString(tag));
 
-                AesGcm aesDecryptor = new AesGcm();
-                var decrypted = aesDecryptor.Decrypt(MasterKey, iv, null, data, tag);
+                AesGcm aesDecryption = new AesGcm();
+                var decrypted = aesDecryption.Decrypt(masterKey, iv, null, data, tag);
                 var result = Encoding.UTF8.GetString(decrypted);
 
                 return result;
