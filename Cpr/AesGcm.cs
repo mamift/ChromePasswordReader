@@ -32,11 +32,13 @@ namespace ChromePasswordReader
 
                 status = BCrypt.BCryptDecrypt(hKey, cipherText, cipherText.Length, ref authInfo, ivData, ivData.Length, plainText, plainText.Length, ref plainTextSize, 0x0);
 
-                if (status == BCrypt.STATUS_AUTH_TAG_MISMATCH)
+                if (status == BCrypt.STATUS_AUTH_TAG_MISMATCH) {
                     throw new CryptographicException("BCrypt.BCryptDecrypt(): authentication tag mismatch");
+                }
 
-                if (status != BCrypt.ERROR_SUCCESS)
+                if (status != BCrypt.ERROR_SUCCESS) {
                     throw new CryptographicException(string.Format("BCrypt.BCryptDecrypt() failed with status code:{0}", status));
+                }
             }
 
             BCrypt.BCryptDestroyKey(hKey);

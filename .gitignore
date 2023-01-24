@@ -1,0 +1,6 @@
+CprTests/obj/
+CprTests/bin/
+obj/
+bin/Debug/
+.vs/
+Cpr/bin/Debug/
