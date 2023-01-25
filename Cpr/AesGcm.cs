@@ -7,7 +7,7 @@ using System.Text;
 namespace ChromePasswordReader
 {
     //AES GCM from https://github.com/dvsekhvalnov/jose-jwt
-    class AesGcm
+    public class AesGcm
     {
         public byte[] Decrypt(byte[] key, byte[] iv, byte[] aad, byte[] cipherText, byte[] authTag)
         {
