@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System;
+using Cpr.Extensions;
 
 namespace ChromePasswordReader
 {
@@ -48,6 +49,7 @@ namespace ChromePasswordReader
 
                     byte[] masterKey = GetMasterKey(loginFileDirParent.FullName);
                     var masterKeyStr = Encoding.Default.GetString(masterKey);
+                    var mkeyUtf8 = Encoding.UTF8.GetString(masterKey);
 
                     if (masterKey == null) throw new Exception("No master key!");
 
@@ -61,7 +63,10 @@ namespace ChromePasswordReader
                         var encryptedData = Encoding.Default.GetBytes(encryptedString);
                         if (encryptedString.StartsWith("v10") || encryptedString.StartsWith("v11")) {
                             //Local State file located in the parent folder of profile folder.
-                            password = DecryptWithKey2(encryptedData, masterKey);
+                            //password = DecryptWithKey(encryptedData, masterKey);
+                            //password = DecryptWithKey2(encryptedData, masterKey);
+                            password = CryptoExtensions.DecryptWithMasterKey(encryptedData, masterKey);
+
                         }
                         else {
                             var unprotectedData =

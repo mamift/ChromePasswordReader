@@ -3,7 +3,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Cpr.Extensions
+namespace Cpr.Services
 {
     public class AesGcmService : IDisposable
     {
@@ -53,11 +53,16 @@ namespace Cpr.Extensions
             return Convert.ToBase64String(encryptedData);
         }
 
-        public string Decrypt(string cipher)
+        public string Decrypt(byte[] cipher)
         {
             // Decode
-            Span<byte> encryptedData = Convert.FromBase64String(cipher).AsSpan();
+            Span<byte> encryptedData = cipher.AsSpan();
 
+            return Decrypt(encryptedData);
+        }
+
+        public string Decrypt(Span<byte> encryptedData)
+        {
             // Extract parameter sizes
             int nonceSize = BinaryPrimitives.ReadInt32LittleEndian(encryptedData.Slice(0, 4));
             int tagSize = BinaryPrimitives.ReadInt32LittleEndian(encryptedData.Slice(4 + nonceSize, 4));
@@ -74,6 +79,13 @@ namespace Cpr.Extensions
 
             // Convert plain bytes back into string
             return Encoding.UTF8.GetString(plainBytes);
+        }
+
+        public string Decrypt(string cipher)
+        {
+            Span<byte> encryptedData = Convert.FromBase64String(cipher).AsSpan();
+
+            return Decrypt(encryptedData);
         }
 
         public void Dispose()
