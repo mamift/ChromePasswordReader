@@ -61,7 +61,7 @@ namespace ChromePasswordReader
                         var encryptedData = Encoding.Default.GetBytes(encryptedString);
                         if (encryptedString.StartsWith("v10") || encryptedString.StartsWith("v11")) {
                             //Local State file located in the parent folder of profile folder.
-                            password = DecryptWithKey(encryptedData, masterKey);
+                            password = DecryptWithKey2(encryptedData, masterKey);
                         }
                         else {
                             var unprotectedData =
@@ -119,6 +119,44 @@ namespace ChromePasswordReader
             }
         }
 
+        public static string DecryptWithKey2(byte[] encryptedData, byte[] masterKey)
+        {
+            byte[] iv = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // IV 12 bytes
+
+            //trim first 3 bytes(signature "v10") and take 12 bytes after signature.
+            const int ivLength = 12;
+            Array.Copy(encryptedData, 3, iv, 0, ivLength);
+
+            try {
+                //encryptedData without IV
+                const int dataBufferLength = 15;
+                byte[] dataBufferWithoutIv = new byte[encryptedData.Length - dataBufferLength];
+                Array.Copy(encryptedData, dataBufferLength, dataBufferWithoutIv, 0, encryptedData.Length - dataBufferLength);
+
+                const int authTagLength = 16;
+                byte[] tag = new byte[authTagLength]; //AuthTag
+                byte[] data = new byte[dataBufferWithoutIv.Length - tag.Length]; //Encrypted Data
+
+                //Last 16 bytes for tag
+                Array.Copy(dataBufferWithoutIv, dataBufferWithoutIv.Length - authTagLength, tag, 0, authTagLength);
+
+                //encrypted password
+                Array.Copy(dataBufferWithoutIv, 0, data, 0, dataBufferWithoutIv.Length - tag.Length);
+                //Console.WriteLine("tag:" + System.Text.Encoding.Default.GetString(tag));
+
+                var aesDecryption = new System.Security.Cryptography.AesGcm(masterKey);
+                byte[] decrypted = new byte[dataBufferWithoutIv.Length];
+                aesDecryption.Decrypt(nonce: iv, ciphertext: dataBufferWithoutIv, tag: tag, plaintext: decrypted, associatedData: null);
+                var result = Encoding.UTF8.GetString(decrypted);
+
+                return result;
+            }
+            catch (Exception ex) {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         public static string DecryptWithKey(byte[] encryptedData, byte[] masterKey)
         {
             byte[] iv = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // IV 12 bytes
@@ -145,7 +183,7 @@ namespace ChromePasswordReader
                 //Console.WriteLine("tag:" + System.Text.Encoding.Default.GetString(tag));
 
                 AesGcm aesDecryption = new AesGcm();
-                var decrypted = aesDecryption.Decrypt(masterKey, iv, null, data, tag);
+                var decrypted = aesDecryption.Decrypt(key: masterKey, iv: iv, aad: null, cipherText: data, authTag: tag);
                 var result = Encoding.UTF8.GetString(decrypted);
 
                 return result;
