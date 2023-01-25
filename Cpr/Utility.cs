@@ -18,6 +18,7 @@ namespace ChromePasswordReader
                 }
             }
 
+            string tempCopyOfLoginFile = null;
             try {
                 foreach (string loginFile in loginDataFiles.ToArray()) {
                     if (!File.Exists(loginFile)) {
@@ -25,7 +26,10 @@ namespace ChromePasswordReader
                         continue;
                     }
 
-                    using var con = new SQLiteConnection(@"URI=file:" + loginFile);
+                    tempCopyOfLoginFile = Path.GetTempFileName();
+                    File.Copy(loginFile, tempCopyOfLoginFile, true);
+
+                    using var con = new SQLiteConnection(@"URI=file:" + tempCopyOfLoginFile);
 
                     con.Open();
                     SQLiteDataReader rdr = null;
@@ -38,13 +42,13 @@ namespace ChromePasswordReader
                     catch (Exception e) {
                         continue;
                     }
-                    
+
                     var loginFileDir = Directory.GetParent(loginFile);
                     var loginFileDirParent = loginFileDir.Parent;
 
                     byte[] masterKey = GetMasterKey(loginFileDirParent.FullName);
                     var masterKeyStr = Encoding.Default.GetString(masterKey);
-                    
+
                     if (masterKey == null) throw new Exception("No master key!");
 
                     while (rdr.Read()) {
@@ -58,8 +62,10 @@ namespace ChromePasswordReader
                         if (encryptedString.StartsWith("v10") || encryptedString.StartsWith("v11")) {
                             //Local State file located in the parent folder of profile folder.
                             password = DecryptWithKey(encryptedData, masterKey);
-                        } else {
-                            var unprotectedData = ProtectedData.Unprotect(encryptedData, null, DataProtectionScope.CurrentUser);
+                        }
+                        else {
+                            var unprotectedData =
+                                ProtectedData.Unprotect(encryptedData, null, DataProtectionScope.CurrentUser);
                             password = Encoding.UTF8.GetString(unprotectedData);
                         }
 
@@ -71,6 +77,11 @@ namespace ChromePasswordReader
             }
             catch (Exception e) {
                 Console.WriteLine(e.ToString());
+            }
+            finally {
+                if (tempCopyOfLoginFile != null && File.Exists(tempCopyOfLoginFile)) {
+                    File.Delete(tempCopyOfLoginFile);
+                }
             }
         }
 
