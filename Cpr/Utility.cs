@@ -48,7 +48,7 @@ namespace ChromePasswordReader
                     var loginFileDirParent = loginFileDir.Parent;
 
                     byte[] masterKey = GetMasterKey(loginFileDirParent.FullName);
-                    var masterKeyStr = Encoding.Default.GetString(masterKey);
+                    var masterKeyStr = Convert.ToBase64String(masterKey);
                     var mkeyUtf8 = Encoding.UTF8.GetString(masterKey);
 
                     if (masterKey == null) throw new Exception("No master key!");
@@ -63,10 +63,11 @@ namespace ChromePasswordReader
                         var encryptedData = Encoding.Default.GetBytes(encryptedString);
                         if (encryptedString.StartsWith("v10") || encryptedString.StartsWith("v11")) {
                             //Local State file located in the parent folder of profile folder.
-                            //password = DecryptWithKey(encryptedData, masterKey);
+                            password = DecryptWithKey(encryptedData, masterKey);
                             //password = DecryptWithKey2(encryptedData, masterKey);
-                            password = CryptoExtensions.DecryptWithMasterKey(encryptedData, masterKey);
-
+                            //password = CryptoExtensions.SvcDecryptWithMasterKey(encryptedData, masterKey);
+                            //var p2 = ProtectedData.Unprotect(encryptedData, null, DataProtectionScope.CurrentUser);
+                            //password = Encoding.Default.GetString(p2);
                         }
                         else {
                             var unprotectedData =
@@ -90,14 +91,12 @@ namespace ChromePasswordReader
             }
         }
 
-        public static byte[] GetMasterKey(string LocalStateFolder)
+        public static string? GetMasterKeyString(string localStateFolder)
         {
             //Key saved in Local State file
-            string filePath = LocalStateFolder + @"\Local State";
-            byte[] masterKey = new byte[] { };
+            string filePath = localStateFolder + @"\Local State";
 
-            if (File.Exists(filePath) == false)
-                return null;
+            if (File.Exists(filePath) == false) return null;
 
             //Get key with regex.
             var localStateText = File.ReadAllText(filePath);
@@ -106,9 +105,23 @@ namespace ChromePasswordReader
                     System.Text.RegularExpressions.RegexOptions.Compiled).Matches(localStateText);
 
             foreach (System.Text.RegularExpressions.Match prof in pattern) {
-                if (prof.Success)
-                    masterKey = Convert.FromBase64String((prof.Groups[1].Value)); //Decode base64
+                if (prof.Success) {
+                    var keyValue = prof.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(keyValue)) {
+                        return keyValue;
+                    }
+                }
             }
+
+            return null;
+        }
+
+        public static byte[] GetMasterKey(string localStateFolder)
+        {
+            byte[] masterKey;
+
+            var masterKeyString = GetMasterKeyString(localStateFolder);
+            masterKey = Convert.FromBase64String(masterKeyString); //Decode base64
 
             //Trim first 5 bytes. Its signature "DPAPI"
             byte[] temp = new byte[masterKey.Length - 5];
